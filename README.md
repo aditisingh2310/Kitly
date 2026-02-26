@@ -1,4 +1,4 @@
-# Niche Bundler - Shopify App
+# KITLY- Niche Bundler
 
 A comprehensive Shopify app for creating and managing product bundles with customizable discounts.
 
