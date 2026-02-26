@@ -1,0 +1,11 @@
+name = "niche-bundler-extension"
+type = "theme"
+api_version = "2024-01"
+
+[extension_points]
+[[extension_points.blocks]]
+name = "bundle-widget"
+target = "section"
+
+[[extension_points.assets]]
+name = "bundle-widget.js"
