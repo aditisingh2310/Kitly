@@ -45,7 +45,11 @@ app.get("/auth/callback", async (req, res) => {
       rawRequest: req,
       rawResponse: res,
     });
-
+await shopify.webhooks.register({
+  session,
+  path: "/webhooks/app/uninstalled",
+  topic: "APP_UNINSTALLED"
+});
     // Save shop in DB
     await prisma.shop.upsert({
       where: { shopDomain: session.shop },
@@ -56,7 +60,7 @@ app.get("/auth/callback", async (req, res) => {
       },
     });
 
-    res.send("App successfully installed!");
+    res.redirect("/onboarding");
   } catch (err) {
     console.error(err);
     res.status(500).send("OAuth error");
@@ -145,8 +149,10 @@ app.get("/public/bundles", async (req, res) => {
 
 /* ---------------- Start Server ---------------- */
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+const { PORT } = require("./config");
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 app.get("/api/billing", verifyShop, async (req, res) => {
   const shop = req.shop.shopDomain;
@@ -181,7 +187,13 @@ async function checkActiveSubscription(req, res, next) {
       accessToken: req.shop.accessToken
     }
   });
-
+if (!active) {
+  const now = new Date();
+  if (req.shop.trialEndsAt && now < req.shop.trialEndsAt) {
+    return next();
+  }
+  return res.status(402).json({ error: "Trial expired" });
+}
   const charges = await client.get({
     path: "recurring_application_charges"
   });
@@ -225,3 +237,10 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: "Internal Server Error" });
 });
+const { log } = require("./lib/logger");
+log("Server started");
+log(`Bundle created for ${req.shop.shopDomain}`);
+const onboardingRoute = require("./routes/onboarding");
+app.use("/", onboardingRoute);
+const pricingRoute = require("./routes/pricing");
+app.use("/", pricingRoute);
