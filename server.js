@@ -1,10 +1,9 @@
 import express from "express";
-import session from "express-session";
-import fetch from "node-fetch";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { shopifyApp } from "@shopify/shopify-app-express";
 import { BillingInterval } from "@shopify/shopify-api";
+import { MemorySessionStorage } from "@shopify/shopify-app-session-storage-memory";
 
 dotenv.config();
 
@@ -13,36 +12,35 @@ const app = express();
 
 app.use(express.json());
 
+/* ------------------ SAFE ENV VARIABLES ------------------ */
+
+const {
+  SHOPIFY_API_KEY,
+  SHOPIFY_API_SECRET,
+  SCOPES,
+  HOST,
+  PORT,
+} = process.env;
+
+if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET || !HOST) {
+  throw new Error("Missing required environment variables.");
+}
+
 /* ------------------ SHOPIFY APP SETUP ------------------ */
 
 const shopify = shopifyApp({
   api: {
-    apiKey: process.env.SHOPIFY_API_KEY,
-    apiSecretKey: process.env.SHOPIFY_API_SECRET,
-    // server.js
-import express from "express";  // keep your existing imports
-
-const app = express();
-
-// Safe reading of SCOPES
-function getScopes() {
-  const scopesEnv = process.env.SCOPES || "";
-  return scopesEnv.split(",").filter(Boolean);
-}
-
-const scopes = getScopes();  // use this instead of process.env.SCOPES.split(",")
-
-console.log("SCOPES:", scopes);  // optional, helps check in logs
-
-// Now use `scopes` in your app wherever needed
-    hostName: process.env.HOST.replace(/https?:\/\//, ""),
+    apiKey: SHOPIFY_API_KEY,
+    apiSecretKey: SHOPIFY_API_SECRET,
+    scopes: SCOPES ? SCOPES.split(",") : [],
+    hostName: HOST.replace(/https?:\/\//, ""),
   },
   auth: {
     path: "/api/auth",
     callbackPath: "/api/auth/callback",
   },
   session: {
-    storage: new shopify.session.MemorySessionStorage(),
+    storage: new MemorySessionStorage(),
   },
 });
 
@@ -74,16 +72,20 @@ async function ensureBilling(session) {
     });
     return false;
   }
+
   return true;
 }
 
 /* ------------------ API ROUTES ------------------ */
 
-// Enforce billing for admin routes
+// Enforce billing
 app.use("/api", async (req, res, next) => {
-  const session = res.locals.shopify.session;
+  const session = res.locals.shopify?.session;
+  if (!session) return res.status(401).send("Unauthorized");
+
   const paid = await ensureBilling(session);
   if (!paid) return;
+
   next();
 });
 
@@ -91,63 +93,82 @@ app.use("/api", async (req, res, next) => {
 
 // Create bundle
 app.post("/api/bundles", async (req, res) => {
-  const { title, products } = req.body;
-  const shop = res.locals.shopify.session.shop;
+  try {
+    const { title, products } = req.body;
+    const shop = res.locals.shopify.session.shop;
 
-  const bundle = await prisma.bundle.create({
-    data: {
-      shop,
-      title,
-      products: JSON.stringify(products),
-    },
-  });
+    const bundle = await prisma.bundle.create({
+      data: {
+        shop,
+        title,
+        products: JSON.stringify(products),
+      },
+    });
 
-  res.json(bundle);
+    res.json(bundle);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // List bundles
 app.get("/api/bundles", async (req, res) => {
-  const shop = res.locals.shopify.session.shop;
+  try {
+    const shop = res.locals.shopify.session.shop;
 
-  const bundles = await prisma.bundle.findMany({
-    where: { shop },
-  });
+    const bundles = await prisma.bundle.findMany({
+      where: { shop },
+    });
 
-  res.json(bundles);
+    res.json(bundles);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Delete bundle
 app.delete("/api/bundles/:id", async (req, res) => {
-  await prisma.bundle.delete({
-    where: { id: Number(req.params.id) },
-  });
+  try {
+    await prisma.bundle.delete({
+      where: { id: Number(req.params.id) },
+    });
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /* ------------------ STOREFRONT API ------------------ */
 
-// Public endpoint for theme extension
 app.get("/bundle-data", async (req, res) => {
-  const { shop } = req.query;
+  try {
+    const { shop } = req.query;
 
-  const bundles = await prisma.bundle.findMany({
-    where: { shop },
-  });
+    const bundles = await prisma.bundle.findMany({
+      where: { shop },
+    });
 
-  res.json(bundles);
+    res.json(bundles);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /* ------------------ WEBHOOKS ------------------ */
 
 app.post("/api/webhooks/app/uninstalled", async (req, res) => {
-  const shop = req.headers["x-shopify-shop-domain"];
+  try {
+    const shop = req.headers["x-shopify-shop-domain"];
 
-  await prisma.bundle.deleteMany({
-    where: { shop },
-  });
+    await prisma.bundle.deleteMany({
+      where: { shop },
+    });
 
-  res.sendStatus(200);
+    res.sendStatus(200);
+  } catch (error) {
+    res.status(500).send("Webhook error");
+  }
 });
 
 /* ------------------ FRONTEND FALLBACK ------------------ */
@@ -158,7 +179,8 @@ app.get("/*", shopify.ensureInstalledOnShop(), (req, res) => {
 
 /* ------------------ START SERVER ------------------ */
 
-const PORT = process.env.PORT || 8081;
-app.listen(PORT, () => {
-  console.log(`🚀 Shopify app running on port ${PORT}`);
+const serverPort = PORT || 8081;
+
+app.listen(serverPort, () => {
+  console.log(`🚀 Shopify app running on port ${serverPort}`);
 });
