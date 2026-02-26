@@ -19,7 +19,22 @@ const shopify = shopifyApp({
   api: {
     apiKey: process.env.SHOPIFY_API_KEY,
     apiSecretKey: process.env.SHOPIFY_API_SECRET,
-    scopes: process.env.SCOPES.split(","),
+    // server.js
+import express from "express";  // keep your existing imports
+
+const app = express();
+
+// Safe reading of SCOPES
+function getScopes() {
+  const scopesEnv = process.env.SCOPES || "";
+  return scopesEnv.split(",").filter(Boolean);
+}
+
+const scopes = getScopes();  // use this instead of process.env.SCOPES.split(",")
+
+console.log("SCOPES:", scopes);  // optional, helps check in logs
+
+// Now use `scopes` in your app wherever needed
     hostName: process.env.HOST.replace(/https?:\/\//, ""),
   },
   auth: {
