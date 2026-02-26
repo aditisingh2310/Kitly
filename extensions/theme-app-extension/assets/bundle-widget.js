@@ -162,3 +162,16 @@
     initBundleWidgets();
   }
 })();
+document.addEventListener("DOMContentLoaded", async () => {
+  const shop = Shopify.shop;
+
+  const res = await fetch(
+    `https://your-domain.com/public/bundles?shop=${shop}`
+  );
+
+  const bundles = await res.json();
+
+  console.log("Loaded bundles:", bundles);
+
+  // Render bundles here
+});
