@@ -6,22 +6,26 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "prisma generate && echo 'Build complete'",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "build": "vite build && echo 'Build complete'"
   },
   "dependencies": {
-    "@prisma/client": "^5.7.0",
+    "@shopify/polaris": "^12.0.0",
     "@shopify/shopify-api": "^9.5.1",
     "@shopify/shopify-app-express": "^5.0.0",
+    "@shopify/shopify-app-session-storage-memory": "^3.0.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.19.2",
     "express-session": "^1.17.3",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
-    "prisma": "^5.7.0"
+    "vite": "^5.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
